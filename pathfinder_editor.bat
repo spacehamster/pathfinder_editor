@@ -1,8 +1,8 @@
 :: Check for Python Installation
 python --version 2>NUL
 if errorlevel 1 goto errorNoPython
-
-python %~dp0\src\pathfinder_editor\pathfinder_editor.py
+SET PYTHONPATH=%~dp0\src
+python %~dp0\src\editor\pathfinder_editor.py
 
 goto:eof
 

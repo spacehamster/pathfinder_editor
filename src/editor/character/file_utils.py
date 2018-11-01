@@ -22,14 +22,49 @@ def extract_file(path, temp_dir_path):
 def load_json(dir_path, file_name):
     path = full_path(dir_path, file_name)
     contents = io.open(path, 'r', encoding='utf-8-sig').read()
-    return json.loads(contents)
+    return json.loads(contents, cls=RefDecoder)
 
 
 def save_json(dir_path, file_name, contents):
     path = full_path(dir_path, file_name)
     with io.open(path, 'w', encoding='utf-8-sig') as json_file:
-        json.dump(contents, json_file)
+        json.dump(contents, json_file, cls=RefEncoder)
 
+class RefDecoder(json.JSONDecoder):
+    def __init__(self):
+        self.objects = {}
+        json.JSONDecoder.__init__(self)
+    def object_hook(self, dic):
+        if '$id' in dic:
+            _id = dic['$id']
+            if _id in self.objects:
+                real_obj = self.objects[_id]
+                real_obj.update(dic)
+                return real_obj
+            else:
+                self.objects[_id] = dic
+                return dic
+        if '$ref' in dic:
+            _id = dic['$ref']
+            if _id in self.objects:
+                return self.objects[_id]
+            else:
+                self.objects[_id] = {}
+                return self.objects[_id]
+        return dic
+
+class RefEncoder(json.JSONEncoder):
+    def __init__(self, *args, **kwargs):
+        self.objects = set()
+        json.JSONEncoder.__init__(self, *args, **kwargs)
+    def default(self, o):
+        if isinstance(o, dict) and '$id' in o:
+            if o['$id'] in self.objects:
+                return {'$ref': o['$id']}
+            else:
+                self.objects.add(o['$id'])
+                return o
+        return json.JSONEncoder.default(self, o)
 
 def full_path(dir_path, file_name):
     return str((dir_path / file_name).resolve())
